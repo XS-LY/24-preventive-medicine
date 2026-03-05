@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24预防拔创 - 资料共享平台</title>
+<style>
+:root {
+--bg: #f5f7fa;
+--card: #fff;
+--text: #2d3748;
+--sub: #718096;
+--border: #cbd5e0;
+--main: #4299e1;
+--hover: #3182ce;
+--success: #38a169;
+--dash: #cbd5e0;
+}
+[data-theme="dark"] {
+--bg: #121212;
+--card: #1e1e1e;
+--text: #e0e0e0;
+--sub: #a0a0a0;
+--border: #333;
+--main: #3b82f6;
+--hover: #2563eb;
+--success: #22c55e;
+--dash: #444;
+}
+* {
+margin: 0; padding: 0; box-sizing: border-box;
+font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+transition: background 0.3s, color 0.3s, border-color 0.3s;
+}
+body {
+background: var(--bg); color: var(--text); padding: 20px;
+}
+.container {
+max-width: 1000px; margin: 0 auto;
+background: var(--card); border-radius: 14px;
+padding: 30px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.head {
+display: flex; justify-content: space-between; align-items: center;
+margin-bottom: 10px;
+}
+h1 {
+font-size: 24px;
+}
+.desc {
+text-align: center; color: var(--sub); margin-bottom: 24px;
+}
+#theme {
+padding: 8px 14px; border-radius: 8px;
+background: var(--main); color: #fff; border: none; cursor: pointer;
+}
+#theme:hover { background: var(--hover); }
+
+.upload-box {
+border: 2px dashed var(--dash); padding: 24px;
+text-align: center; border-radius: 10px; margin-bottom: 24px;
+cursor: pointer;
+}
+.upload-box:hover { border-color: var(--main); }
+
+select, button {
+padding: 10px 14px; border-radius: 8px;
+border: 1px solid var(--border);
+background: var(--card); color: var(--text);
+font-size: 15px; margin: 6px;
+}
+button { background: var(--main); color: #fff; border: none; }
+button:hover { background: var(--hover); }
+
+.download { background: var(--success) !important; }
+
+.category-bar {
+display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;
+justify-content: center;
+}
+.category-btn {
+padding: 8px 12px; border-radius: 6px;
+background: var(--bg); border: 1px solid var(--border);
+cursor: pointer;
+}
+.category-btn.active {
+background: var(--main); color: #fff; border-color: var(--main);
+}
+
+.file-item {
+padding: 12px 16px; background: var(--bg);
+border-radius: 8px; margin-bottom: 8px;
+display: flex; justify-content: space-between; align-items: center;
+border: 1px solid var(--border);
+}
+.filename {
+font-weight: 500; word-break: break-all;
+}
+.empty {
+text-align: center; color: var(--sub); padding: 20px 0;
+}
+input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="head">
+    <h1>📚 24预防拔创 · 学习资料共享平台</h1>
+    <button id="theme">🌙 夜间模式</button>
+  </div>
+  <p class="desc">按科目上传下载，管理员统一管理分类</p>
+
+  <div class="upload-box" onclick="document.getElementById('file').click()">
+    <p>点击选择文件</p>
+    <input type="file" id="file">
+    <div>
+      <select id="category"></select>
+      <button onclick="upload()">📤 上传</button>
+    </div>
+  </div>
+
+  <div class="category-bar" id="categoryBar"></div>
+  <div id="fileList"><p class="empty">加载中...</p></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ======================
+// 在这里填你的 Supabase 信息
+// ======================
+const supabase = supabase.createClient(
+  "https://fygriwwzukbnzjfmiphs.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Z3Jpd3d6dWtibnpqZm1pcGhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTc2MDgsImV4cCI6MjA4ODI3MzYwOH0.4kAtfzHU8BOZITTxs0nRRPUgevmN0niJx4HmZkTZMJA"
+);
+
+// 模式切换
+let dark = false;
+const themeBtn = document.getElementById('theme');
+themeBtn.onclick = () => {
+  dark = !dark;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  themeBtn.textContent = dark ? '☀️ 日间模式' : '🌙 夜间模式';
+};
+
+let currentCid = 0; // 0=全部
+
+// 加载科目
+async function loadCategories() {
+  const { data } = await supabase.from('categories').select('*');
+  const sel = document.getElementById('category');
+  const bar = document.getElementById('categoryBar');
+  sel.innerHTML = '';
+  bar.innerHTML = `<button class="category-btn ${currentCid===0?'active':''}" onclick="show(0)">全部</button>`;
+  data.forEach(c => {
+    sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    bar.innerHTML += `<button class="category-btn ${currentCid===c.id?'active':''}" onclick="show(${c.id})">${c.name}</button>`;
+  });
+}
+
+// 显示某科目文件
+async function show(cid) {
+  currentCid = cid;
+  await loadCategories();
+  let query = supabase.from('files').select(`
+    id, filename, file_path, uploader, created_at,
+    categories ( name )
+  `).order('created_at', { ascending: false });
+  if (cid !== 0) query = query.eq('category_id', cid);
+  const { data } = await query;
+  const list = document.getElementById('fileList');
+  if (!data || data.length === 0) {
+    list.innerHTML = '<p class="empty">该科目暂无资料</p>';
+    return;
+  }
+  list.innerHTML = data.map(i => {
+    const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(i.file_path);
+    return `
+    <div class="file-item">
+      <div>
+        <div class="filename">${i.filename}</div>
+        <div style="font-size:12px;color:var(--sub)">${i.categories?.name || '未知'}</div>
+      </div>
+      <a href="${publicUrl}" target="_blank" style="text-decoration:none">
+        <button class="download">📥 下载</button>
+      </a>
+    </div>`;
+  }).join('');
+}
+
+// 上传
+async function upload() {
+  const file = document.getElementById('file').files[0];
+  const cid = document.getElementById('category').value;
+  if (!file || !cid) return alert('请选择文件和科目');
+  const path = `${cid}/${Date.now()}_${file.name}`;
+  const { error } = await supabase.storage.from('files').upload(path, file);
+  if (error) return alert('上传失败：' + error.message);
+  await supabase.from('files').insert([{
+    category_id: cid,
+    filename: file.name,
+    file_path: path,
+    uploader: '同学'
+  }]);
+  alert('上传成功！');
+  show(currentCid);
+}
+
+// 初始化
+loadCategories();
+show(0);
+</script>
+</body>
+</html>
