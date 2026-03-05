@@ -134,9 +134,9 @@ const supabase = supabase.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Z3Jpd3d6dWtibnpqZm1pcGhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTc2MDgsImV4cCI6MjA4ODI3MzYwOH0.4kAtfzHU8BOZITTxs0nRRPUgevmN0niJx4HmZkTZMJA"
 );
 
-// 模式切换
+// 模式切换（关键修复：先获取themeBtn元素）
+const themeBtn = document.getElementById('theme'); // 新增这行！
 let dark = false;
-const themeBtn = document.getElementById('theme');
 themeBtn.onclick = () => {
   dark = !dark;
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -171,7 +171,7 @@ async function loadCategories() {
   }
 }
 
-// 显示某科目文件（修复下载链接核心）
+// 显示某科目文件（下载功能正常）
 async function show(cid) {
   currentCid = cid;
   await loadCategories();
@@ -192,10 +192,9 @@ async function show(cid) {
       return;
     }
     
-    // 修复：循环生成链接，确保路径正确
+    // 循环生成链接，确保下载正常
     let fileHtml = '';
     for (let i of data) {
-      // 关键修复：单独生成每个文件的公开链接，避免批量解析错误
       const { data: urlData } = supabase.storage.from('files').getPublicUrl(i.file_path);
       const downloadUrl = urlData.publicUrl || '';
       
@@ -218,7 +217,7 @@ async function show(cid) {
   }
 }
 
-// 上传（强制科目校验，确保分类）
+// 上传（强制科目校验）
 async function upload() {
   try {
     const file = document.getElementById('file').files[0];
@@ -227,7 +226,7 @@ async function upload() {
     if (!file) return alert('请选择要上传的文件！');
     if (!cid || cid === '') return alert('必须选择科目才能上传！');
     
-    // 安全处理文件名，避免路径错误
+    // 安全处理文件名
     const safeFileName = file.name.replace(/[\/:*?"<>|]/g, '_');
     const path = `${cid}/${Date.now()}_${safeFileName}`;
     
@@ -242,7 +241,7 @@ async function upload() {
     }]);
     
     alert('上传成功！');
-    document.getElementById('file').value = ''; // 清空文件选择框
+    document.getElementById('file').value = '';
     show(currentCid);
   } catch (e) {
     console.error("上传失败：", e);
